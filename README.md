@@ -15,9 +15,9 @@ For this sample to work you should have the following prerequisites:
 
 The solution consists of a AWS Lambda scheduled by a AWS EventBridge rule. Every time the schedule is triggered, the Lambda code runs and sets the new default retention period for all applicable AWS CloudWatch Log Group name. The log group names can be selected with a simple text pattern or with a regular expression.
 The provided AWS CloudFormation template creates
-* An AWS IAM Lambda service Role that allows the function to read existing log groups and update the retention period
+* An AWS IAM service Role that allows the Lambda function to read existing log groups and update the retention period
 * An AWS Lambda that reads existing log groups and updates the retention period
-* An AWS EventBridge Rule that schedules the lambda function execution
+* An Amazon EventBridge Rule that schedules the lambda function execution
 
 ## Installation Instructions
 
