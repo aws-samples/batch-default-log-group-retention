@@ -1,0 +1,183 @@
+{
+ "Parameters": {
+  "defaultLogRetentionPeriod": {
+   "Type": "Number",
+   "Default": 90,
+   "Description": "The number of days that you want to set as default log group retention period",
+   "MinValue": 1
+  },
+  "logGroupPatternMatchType": {
+   "Type": "String",
+   "Default": "Regular Expression",
+   "AllowedValues": [
+    "Simple Text Pattern",
+    "Regular Expression"
+   ],
+   "Description": "The match pattern type you want to use. 'Simple Text Pattern' will match a simple text in the log group name e.g. lambda matches /aws/lambda/loggroupname. To use a regular expression select 'Regular Expression'"
+  },
+  "logGroupPatternMatchValue": {
+   "Type": "String",
+   "Default": ".*lambda.*",
+   "Description": "The text you want to match in the log group name e.g. if you selected 'Simple Text Pattern', inserting lambda will match any log group name which name contains *lambda*. To achieve the same result with 'Regular Expression' you should insert .*lambda.*"
+  },
+  "scheduleInterval": {
+   "Type": "Number",
+   "Default": 48,
+   "Description": "The schedule interval, in hours. Minimum allowed value is 2 hours",
+   "MinValue": 2
+  }
+ },
+ "Resources": {
+  "Role1ABCC5F0": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Description": "Allows Lambda to update the retention policy",
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ],
+    "Policies": [
+     {
+      "PolicyDocument": {
+       "Statement": [
+        {
+         "Action": [
+          "logs:DescribeLogGroups",
+          "logs:PutRetentionPolicy"
+         ],
+         "Effect": "Allow",
+         "Resource": "*"
+        }
+       ],
+       "Version": "2012-10-17"
+      },
+      "PolicyName": "allow-log-retention-update"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BatchDefaultLogGroupRetentionStack/Role/Resource"
+   }
+  },
+  "updatelogretention353495BA": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "ZipFile": {
+      "Fn::Join": [
+       "",
+       [
+        "\n#Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.\n#SPDX-License-Identifier: MIT-0\nimport json\nimport boto3\nimport re\n\n\ndef handler(event, context):\n    logClient = boto3.client('logs')\n    logGroups = logClient.describe_log_groups()\n    logPattern = '",
+        {
+         "Ref": "logGroupPatternMatchType"
+        },
+        "'\n    logPatternValue = '",
+        {
+         "Ref": "logGroupPatternMatchValue"
+        },
+        "'\n    retentionDays = ",
+        {
+         "Ref": "defaultLogRetentionPeriod"
+        },
+        "\n    isRegExPresent = bool(logPattern==\"Regular Expression\")\n    for logGroup in logGroups['logGroups']:\n        logGroupName = logGroup['logGroupName']\n        if isRegExPresent:\n            isMatch = re.match(logPatternValue, logGroupName)\n        else:\n            isMatch = logPatternValue in logGroupName\n        if(isMatch):\n            print('setting retention policy to '+str(retentionDays)+' for log group '+logGroupName)\n            logClient.put_retention_policy(\n            logGroupName=logGroupName,\n            retentionInDays=retentionDays)"
+       ]
+      ]
+     }
+    },
+    "Role": {
+     "Fn::GetAtt": [
+      "Role1ABCC5F0",
+      "Arn"
+     ]
+    },
+    "Architectures": [
+     "arm64"
+    ],
+    "Handler": "index.handler",
+    "Runtime": "python3.10"
+   },
+   "DependsOn": [
+    "Role1ABCC5F0"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BatchDefaultLogGroupRetentionStack/update-log-retention/Resource"
+   }
+  },
+  "scheduledretentionupdateBAB54892": {
+   "Type": "AWS::Events::Rule",
+   "Properties": {
+    "ScheduleExpression": {
+     "Fn::Join": [
+      "",
+      [
+       "rate(",
+       {
+        "Ref": "scheduleInterval"
+       },
+       " hours)"
+      ]
+     ]
+    },
+    "State": "ENABLED",
+    "Targets": [
+     {
+      "Arn": {
+       "Fn::GetAtt": [
+        "updatelogretention353495BA",
+        "Arn"
+       ]
+      },
+      "Id": "Target0"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BatchDefaultLogGroupRetentionStack/scheduled-retention-update/Resource"
+   }
+  },
+  "scheduledretentionupdateAllowEventRuleBatchDefaultLogGroupRetentionStackupdatelogretention2FC9AE7C61EAB03B": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "updatelogretention353495BA",
+      "Arn"
+     ]
+    },
+    "Principal": "events.amazonaws.com",
+    "SourceArn": {
+     "Fn::GetAtt": [
+      "scheduledretentionupdateBAB54892",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BatchDefaultLogGroupRetentionStack/scheduled-retention-update/AllowEventRuleBatchDefaultLogGroupRetentionStackupdatelogretention2FC9AE7C"
+   }
+  }
+ }
+}
